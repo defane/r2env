@@ -1,0 +1,61 @@
+#!/bin/bash
+SCRIPT_PATH=$(dirname "${BASH_SOURCE[0]}")
+SHARE_PATH="${SCRIPT_PATH}/../share/r2env"
+DOCKER_IMAGE="radare2"
+DOCKERFILE="${SHARE_PATH}/Dockerfile"
+LAST_UPDATE_FILE="${SHARE_PATH}/last_update.txt"
+CWD=$(pwd)
+CUR_TIME=$(date -u +"%s")
+
+function build_image(){
+    if [ -d "${SHARE_PATH}/src" ]
+    then
+        cd "${SHARE_PATH}/src"
+        git fetch origin master
+        git reset --hard origin/master
+    else
+        cd "${SHARE_PATH}"
+        git clone https://github.com/radare/radare2.git src
+    fi
+    cd "${CWD}"
+    docker build -t ${DOCKER_IMAGE} "${SHARE_PATH}"
+}
+
+if [ -f "${LAST_UPDATE_FILE}" ]
+then
+    LAST_UPDATE=$(cat "${LAST_UPDATE_FILE}")
+else
+    LAST_UPDATE=0
+fi
+
+echo "$1" | grep -i "update" > /dev/null
+if [ $? -eq 0 ]
+then
+    TO_UPDATE="Y"
+fi
+
+if [ $LAST_UPDATE -eq 0 ]
+then
+    TO_UPDATE="Y"
+fi
+
+if [ $(($CUR_TIME-$LAST_UPDATE)) -gt 604800 ] && [ -z "$TO_UPDATE" ]
+then
+    echo "Last update more than 1 week"
+    echo "Update? (y/N)"
+    read TO_UPDATE
+fi
+
+echo "$TO_UPDATE" | grep -i "^Y$" > /dev/null
+if [ $? -eq 0 ]
+then
+    build_image
+    if [ $? -eq 0 ]
+    then 
+        echo $CUR_TIME > $LAST_UPDATE_FILE
+    else
+        echo "Build image failed" >&2
+    fi
+fi
+
+docker run --rm -it -e HOST_UID=$(id -u) -e HOST_GID=$(id -g) -v "$(pwd)":/home/radare2/workspace ${DOCKER_IMAGE}
