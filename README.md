@@ -1,4 +1,6 @@
 # r2env
+## Description
+Launcher of radare environment in docker container
 ## Install
 * `mkdir -p ~/.local/bin`
 * `cp bin/* ~/.local/bin`
